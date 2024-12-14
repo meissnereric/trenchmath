@@ -129,6 +129,7 @@ class WarbandLoreRequest(BaseModel):
 
 @app.post("/warband_lore/generate")
 def warband_lore_generate(req: WarbandLoreRequest):
+    print(f"Got request for warband lore... {req.warband_text}, {req.theme_info}")
     lore = generate_warband_lore(req.warband_text, req.theme_info)
     return lore
 
