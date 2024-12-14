@@ -42,7 +42,8 @@ def get_llm():
     llm = ChatOpenAI(
         openai_api_key=OPENAI_API_KEY,
         model_name=LLM_MODEL,
-        temperature=0.7
+        temperature=0.7,
+        model_kwargs={"response_format": {"type": "json_object"}},
     )
     return llm
 

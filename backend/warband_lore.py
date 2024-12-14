@@ -1,31 +1,39 @@
 import json
 from typing import Optional
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from .llm import get_llm, get_vectorstore
+from typing import Optional
 
-# Set logging for the queries
-import logging
+from pydantic import BaseModel, Field
 
-logging.basicConfig()
-logging.getLogger("langchain.retrievers").setLevel(logging.INFO)
+import json
 
-def generate_warband_lore(warband_text: str, theme_info: Optional[str] = None) -> dict:
-    """
-    Generate warband lore with the given warband description and optional theme info.
-    Returns a dict with keys "options" containing a list of 3 different lore options.
-    """
+from langchain import hub
+from langchain_core.documents import Document
+from langgraph.graph import START, StateGraph
+from typing_extensions import List, TypedDict
 
-    # Prompt instructions:
-    # We want JSON output containing 3 options. Each option should have:
-    # - A set of member names
-    # - A general warband description
-    # - A warband goal
-    # - A one-paragraph micro-story
-    # If theme_info is not provided, ask the LLM to provide 3 distinct thematic variations.
-    # If theme_info is provided, incorporate it and still produce 3 different variations of final results.
+# Pydantic
+class WarbandLore(BaseModel):
+    """Joke to tell user."""
 
-    base_instructions = """
+    member_names: list[str] = Field(description="Names for all members of the warband (in a style consistent with the theme).")
+    warband_description: str = Field(description="A general warband description.")
+    warband_goal: str = Field(description="A warband goal (why they are crusading/fighting).")
+    micro_story: str = Field(description="A one-paragraph micro-story that highlights some unique aspect of their history or a pivotal event.")
+
+class WarbandLoreOptions(BaseModel):
+    options: list[WarbandLore]
+
+# Define state for application
+class State(TypedDict):
+    warband_text: str
+    warband_theme: str
+    context: List[Document]
+    answer: WarbandLoreOptions
+
+
+base_instructions = """
 You are a lore creation assistant for the "Trench Crusade" setting. You have access to Trench Crusade lore documents (provided as context) and must produce a JSON output that describes a warband.
 
 User provides a warband description text that might contain unit names, equipment, etc. You must create a thematic lore output for this warband, including:
@@ -37,49 +45,70 @@ User provides a warband description text that might contain unit names, equipmen
 
 You must produce 3 variations (options) of the final lore result. Each variation can differ in tone, details, or cultural background based on the instructions.
 
-Your output must be in valid JSON and contain a key "options" which is an array of 3 objects. Each object must have:
-{
-  "member_names": [ "name1", "name2", ... ],
-  "warband_description": "string",
-  "warband_goal": "string",
-  "micro_story": "string"
-}
-
 Ensure any references to the lore match the Trench Crusade setting information from the provided documents.
 If no theme info is provided, propose 3 distinct thematic variations.
 If theme info is provided, incorporate that theme but still provide 3 stylistically distinct final outputs.
 """
 
-    # Adjust prompt depending on theme_info
+prompt_template = ChatPromptTemplate([
+    ("system", base_instructions),
+    ("human", "Warband theme: {warband_theme} \n Warband text: {warband_text}"),
+])
+
+def generate_warband_lore(warband_text: str, theme_info: Optional[str] = None) -> dict:
+    structured_model = get_llm().with_structured_output(WarbandLoreOptions, strict=True)
     if theme_info:
         theme_part = f"The theme information provided: {theme_info}\nIncorporate this theme into all 3 variations."
     else:
-        theme_part = """No specific theme info given. Provide 3 distinct thematic variations that differ significantly in cultural or conceptual flavor."""
+        theme_part = "No specific theme info given. Provide 3 distinct thematic variations that differ significantly in cultural or conceptual flavor."
 
-    final_prompt = f"{base_instructions}\nWarband Text:\n{warband_text}\n\n{theme_part}\n\nYour final answer must be valid JSON."
 
-    retriever = get_vectorstore().as_retriever(search_type="similarity", search_kwargs={"k":8})
-    chain = RetrievalQA.from_chain_type(
-        llm=get_llm(),
-        chain_type="stuff",
-        retriever=retriever
-    )
-    print(f"Running llm with prompt: {final_prompt}")
-    response = chain.invoke(final_prompt)
-    print(f"Response: {response}")
-    # Validate that response is JSON
+    vector_store = get_vectorstore()
+    # Define application steps
+    def retrieve(state: State):
+        retrieved_docs = vector_store.similarity_search(state["warband_text"] + " \n\n " + state["warband_theme"], search_kwargs={"k": 8})
+        return {"context": retrieved_docs}
+
+
+    def generate(state: State):
+        docs_content = "\n\n".join(doc.page_content for doc in state["context"])
+        messages = prompt_template.invoke({"warband_text": state["warband_text"], "warband_theme": state["warband_theme"], "context": docs_content})
+        response = structured_model.invoke(messages)
+        return {"answer": response}
+    # Compile application and test
+    graph_builder = StateGraph(State).add_sequence([retrieve, generate])
+    graph_builder.add_edge(START, "retrieve")
+    graph = graph_builder.compile()
+
+    context = {'warband_text': warband_text, 'warband_theme': theme_part}
+    result = graph.invoke(context)
+    response = result.get('answer', "No answer....")
+    print(f"Raw Response: {response}")
+
+    # Ensure response is a JSON string
     try:
-        data = json.loads(response)
-        # Expect data["options"] with 3 items
-        if "options" not in data or len(data["options"]) != 3:
+        if isinstance(response, WarbandLoreOptions):
+            response = json.loads(response.json())  # Convert Pydantic object to dict
+        elif isinstance(response, str):
+            response = json.loads(response)  # Already a string
+        else:
+            raise ValueError("Unexpected response type.")
+        
+        # Check format and validate structure
+        if "options" not in response or len(response["options"]) != 3:
             raise ValueError("Output JSON does not have 'options' with 3 elements.")
-        return data
+        
+        return response
     except Exception as e:
-        # If invalid JSON or format, handle gracefully
+        # Handle parsing errors
         return {
             "error": "Invalid response format",
-            "raw_response": response
+            "raw_response": str(response),
+            "details": str(e)
         }
 
 if __name__ == "__main__":
-    generate_warband_lore("Black grail knight, corpse guard, puppy of the night")
+    response = generate_warband_lore("Black grail knight, corpse guard, puppy of the night")
+    print(f"True response: {type(response)}, {list(response.keys())}, \n {response}")
+    import pdb;
+    pdb.set_trace()
