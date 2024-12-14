@@ -36,9 +36,10 @@ class State(TypedDict):
 base_instructions = """
 You are a lore creation assistant for the "Trench Crusade" setting. You have access to Trench Crusade lore documents (provided as context) and must produce a JSON output that describes a warband.
 
-User provides a warband description text that might contain unit names, equipment, etc. You must create a thematic lore output for this warband, including:
+User provides a warband description text that might contain unit names, equipment, etc. The first column for a unit is the given name for the unit, the second is the type of unit it is. If they are the same, give the unit a specific name.
+You must create a thematic lore output for this warband, including:
 
-- Names for all members of the warband (in a style consistent with the theme).
+- Names for all members of the warband (in a style consistent with the theme). 
 - A general warband description.
 - A warband goal (why they are crusading/fighting).
 - A one-paragraph micro-story that highlights some unique aspect of their history or a pivotal event.
