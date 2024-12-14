@@ -1,5 +1,5 @@
 import os
-from langchain_openai import OpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
@@ -21,6 +21,7 @@ def load_and_index_pdfs(pdf_dir: str) -> FAISS:
     docs = []
     for file in os.listdir(pdf_dir):
         if file.endswith(".pdf"):
+            print(f"Loading file {file} to be embedded...")
             loader = PyPDFLoader(os.path.join(pdf_dir, file))
             pdf_docs = loader.load()
             docs.extend(pdf_docs)
@@ -30,15 +31,15 @@ def load_and_index_pdfs(pdf_dir: str) -> FAISS:
 
     embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
     vector_store = FAISS.from_documents(splitted_docs, embeddings)
+    print("Embeddings loaded...")
+
     return vector_store
 
 # Initialize vector store at startup
 VECTOR_STORE = load_and_index_pdfs(LORE_PDF_DIR)
 
 def get_llm():
-    # Example: Using OpenAI with a custom model. Adjust as needed.
-    # If "gpt-4o-mini" is a known openAI model variant, else set appropriate params.
-    llm = OpenAI(
+    llm = ChatOpenAI(
         openai_api_key=OPENAI_API_KEY,
         model_name=LLM_MODEL,
         temperature=0.7

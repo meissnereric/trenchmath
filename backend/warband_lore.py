@@ -4,6 +4,12 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from .llm import get_llm, get_vectorstore
 
+# Set logging for the queries
+import logging
+
+logging.basicConfig()
+logging.getLogger("langchain.retrievers").setLevel(logging.INFO)
+
 def generate_warband_lore(warband_text: str, theme_info: Optional[str] = None) -> dict:
     """
     Generate warband lore with the given warband description and optional theme info.
@@ -58,9 +64,9 @@ If theme info is provided, incorporate that theme but still provide 3 stylistica
         chain_type="stuff",
         retriever=retriever
     )
-
-    response = chain.run(final_prompt)
-
+    print(f"Running llm with prompt: {final_prompt}")
+    response = chain.invoke(final_prompt)
+    print(f"Response: {response}")
     # Validate that response is JSON
     try:
         data = json.loads(response)
@@ -74,3 +80,6 @@ If theme info is provided, incorporate that theme but still provide 3 stylistica
             "error": "Invalid response format",
             "raw_response": response
         }
+
+if __name__ == "__main__":
+    generate_warband_lore("Black grail knight, corpse guard, puppy of the night")
