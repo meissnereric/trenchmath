@@ -4,7 +4,7 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
-const API_BASE = "http://64.227.96.236:8000" // Use your correct IP
+const API_BASE = "http://64.227.96.236:8000" // Use your correct IP or domain
 
 function App() {
   const [currentTab, setCurrentTab] = useState("trenchmath")
@@ -25,15 +25,44 @@ function App() {
   const [successDistribution, setSuccessDistribution] = useState(null)
   const [injuryOutcome, setInjuryOutcome] = useState(null)
   const [user, setUser] = useState(null)
-  const [loreJson, setLoreJson] = useState(`{"name":"My Warband","units":["orc","goblin"]}`)
+
+  // Warband Lore State
+  const [warbandText, setWarbandText] = useState(` Slimy Boys | The Cult of the Black Grail 
+[ DUCATS ] Total : 0 | Spent : 500 (15 Lost) | Available : -500
+[ GLORY ] Total : 0 | Spent : 0 (0 Lost)    | Available : 0
+[ ELITE MEMBERS ]
+ Ser Theodosia of the Black | Plague Knight | 155 ducats 0 glory ---
+[ EQUIPMENT ]
+-Putrid Shotgun (20 ducats)
+-Plague Blade (15 ducats)
+-Reinforced Armour (40 ducats)
+-Black Grail Shield (20 ducats)
+
+ Corpse Guard | Corpse Guard | 55 ducats 0 glory ---
+
+ Lord of Tumours | Lord of Tumours | 130 ducats 0 glory ---
+
+[ INFANTRY ]
+ Sweety Girl | Hound of the Black Grail | 60 ducats 0 glory ---
+[ UPGRADES ]
+-Hound Infection (5 ducats)
+
+ Herald of Beelzebub | Herald of Beelzebub | 50 ducats 0 glory ---
+
+ Herald of Beelzebub | Herald of Beelzebub | 50 ducats 0 glory ---
+
+ Hound of the Black Grail | Hound of the Black Grail | 55 ducats 0 glory ---
+
+
+[ EXPLORATION MODIFIERS ]
+  Reroll`)
+  const [themeInfo, setThemeInfo] = useState("")
+  const [loreOptions, setLoreOptions] = useState(null)
+  const [selectedLoreIndex, setSelectedLoreIndex] = useState(null)
 
   useEffect(() => {
     getUser()
   }, [])
-
-  useEffect(() => {
-    computeAll()
-  }, [params])
 
   async function getUser() {
     try {
@@ -104,14 +133,22 @@ function App() {
     }
   }
 
-  async function submitWarbandLore() {
+  async function generateWarbandLore() {
+    setLoreOptions(null)
+    setSelectedLoreIndex(null)
     try {
-      const loreObj = JSON.parse(loreJson)
-      const resp = await axios.post(`${API_BASE}/warband_lore`, loreObj)
-      alert(resp.data.message)
+      const resp = await axios.post(`${API_BASE}/warband_lore/generate`, {
+        warband_text: warbandText,
+        theme_info: themeInfo || null
+      })
+      if (resp.data.error) {
+        alert("Error: " + resp.data.error)
+      } else {
+        setLoreOptions(resp.data.options)
+      }
     } catch (e) {
       console.error(e)
-      alert("Invalid JSON or error in submission.")
+      alert("Failed to generate lore. Check console for error.")
     }
   }
 
@@ -150,8 +187,7 @@ function App() {
         </button>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-grow p-4 flex flex-col items-center">
+      <div className="flex-grow p-4 flex flex-col items-center overflow-auto">
         {currentTab === 'trenchmath' && (
           <div className="w-full max-w-md space-y-6">
             <div className="bg-white p-4 rounded shadow">
@@ -241,17 +277,64 @@ function App() {
         )}
 
         {currentTab === 'warband_lore' && (
-          <div className="w-full max-w-md space-y-4 bg-white p-4 rounded shadow">
-            <h2 className="text-xl font-semibold mb-2">Warband Lore</h2>
-            <p>Enter your Warband data as JSON:</p>
-            <textarea
-              value={loreJson}
-              onChange={(e) => setLoreJson(e.target.value)}
-              className="w-full h-48 border-gray-300 rounded"
-            ></textarea>
-            <button onClick={submitWarbandLore} className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">
-              Save Warband Lore
-            </button>
+          <div className="w-full max-w-md space-y-6">
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-xl font-semibold mb-2">Generate Warband Lore</h2>
+              <label className="block mb-2">
+                <span className="block font-semibold">Warband Text:</span>
+                <textarea
+                  value={warbandText}
+                  onChange={(e) => setWarbandText(e.target.value)}
+                  className="w-full h-40 border border-gray-300 rounded mt-1 p-2"
+                ></textarea>
+              </label>
+              <label className="block mb-2">
+                <span className="block font-semibold">Theme Info (Optional):</span>
+                <textarea
+                  value={themeInfo}
+                  onChange={(e) => setThemeInfo(e.target.value)}
+                  className="w-full h-20 border border-gray-300 rounded mt-1 p-2"
+                  placeholder="Enter theme info or leave blank"
+                ></textarea>
+              </label>
+              <button
+                onClick={generateWarbandLore}
+                className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 w-full"
+              >
+                Generate Lore
+              </button>
+            </div>
+
+            {loreOptions && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Select One of the Lore Options:</h3>
+                {loreOptions.map((opt, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded shadow bg-white border-2 ${selectedLoreIndex === idx ? 'border-blue-600' : 'border-transparent'}`}
+                  >
+                    <h4 className="text-md font-semibold mb-2">Option {idx+1}</h4>
+                    <p><strong>Member Names:</strong> {opt.member_names.join(', ')}</p>
+                    <p><strong>Warband Description:</strong> {opt.warband_description}</p>
+                    <p><strong>Warband Goal:</strong> {opt.warband_goal}</p>
+                    <p><strong>Micro-Story:</strong> {opt.micro_story}</p>
+                    <button
+                      onClick={() => setSelectedLoreIndex(idx)}
+                      className="mt-2 bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700"
+                    >
+                      Select This Option
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedLoreIndex !== null && (
+              <div className="bg-white p-4 rounded shadow">
+                <h3 className="font-semibold mb-2">Selected Lore:</h3>
+                <p>You've selected Option {selectedLoreIndex+1}.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

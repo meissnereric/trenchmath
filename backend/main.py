@@ -3,13 +3,15 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from .database import Base, engine, get_db
-from .models import InputText, User
 from pydantic import BaseModel
-from .oauth import router as oauth_router
-from .auth import get_current_user
+from typing import Optional
 from dotenv import load_dotenv
 
+from .database import Base, engine, get_db
+from .models import InputText, User
+from .oauth import router as oauth_router
+from .auth import get_current_user
+from .warband_lore import generate_warband_lore
 # Import your Trench Crusade math functions here:
 from .trench_crusade_math import (
     compute,
@@ -119,6 +121,16 @@ def get_injury_outcome(req: InjuryOutcomeRequest):
 def save_warband_lore(lore: dict):
     print("Received Warband Lore:", lore)
     return {"message": "saved warband"}
+
+
+class WarbandLoreRequest(BaseModel):
+    warband_text: str
+    theme_info: Optional[str] = None
+
+@app.post("/warband_lore/generate")
+def warband_lore_generate(req: WarbandLoreRequest):
+    lore = generate_warband_lore(req.warband_text, req.theme_info)
+    return lore
 
 @app.get("/health")
 def health_check():
