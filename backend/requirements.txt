@@ -8,3 +8,10 @@ httpx==0.24.1
 python-jose==3.3.0
 scipy==1.14.1
 matplotlib==3.9.4
+openai
+langchain-openai
+langchain-community
+pypdf 
+faiss-cpu
+tiktoken
+
