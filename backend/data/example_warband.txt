@@ -1,0 +1,34 @@
+```
+ Slimy Boys | The Cult of the Black Grail 
+[ DUCATS ] Total : 0 | Spent : 500 (15 Lost) | Available : -500
+[ GLORY ] Total : 0 | Spent : 0 (0 Lost)    | Available : 0
+[ ELITE MEMBERS ]
+ Ser Theodosia of the Black | Plague Knight | 155 ducats 0 glory ---
+[ EQUIPMENT ]
+-Putrid Shotgun (20 ducats)
+-Plague Blade (15 ducats)
+-Reinforced Armour (40 ducats)
+-Black Grail Shield (20 ducats)
+
+ Corpse Guard | Corpse Guard | 55 ducats 0 glory ---
+
+ Lord of Tumours | Lord of Tumours | 130 ducats 0 glory ---
+
+[ INFANTRY ]
+ Sweety Girl | Hound of the Black Grail | 60 ducats 0 glory ---
+[ UPGRADES ]
+-Hound Infection (5 ducats)
+
+ Herald of Beelzebub | Herald of Beelzebub | 50 ducats 0 glory ---
+
+ Herald of Beelzebub | Herald of Beelzebub | 50 ducats 0 glory ---
+
+ Hound of the Black Grail | Hound of the Black Grail | 55 ducats 0 glory ---
+
+
+[ EXPLORATION MODIFIERS ]
+  Reroll
+
+
+
+```
