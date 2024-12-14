@@ -4,7 +4,7 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
-const API_BASE = "http://0.0.0.0:8000" // Adjust as needed
+const API_BASE = "http://64.227.96.236:8000" // Adjust as needed
 
 function App() {
   const [params, setParams] = useState({
