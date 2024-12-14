@@ -4,9 +4,11 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
-const API_BASE = "http://64.227.96.236:8000" // Adjust as needed
+const API_BASE = "http://64.227.96.236:8000" // Use your correct IP
 
 function App() {
+  const [currentTab, setCurrentTab] = useState("trenchmath")
+
   const [params, setParams] = useState({
     modified_dice: 0,
     extra_d6: false,
@@ -23,48 +25,22 @@ function App() {
   const [successDistribution, setSuccessDistribution] = useState(null)
   const [injuryOutcome, setInjuryOutcome] = useState(null)
   const [user, setUser] = useState(null)
+  const [loreJson, setLoreJson] = useState(`{"name":"My Warband","units":["orc","goblin"]}`)
 
-  // Check if user is logged in
   useEffect(() => {
     getUser()
   }, [])
+
+  useEffect(() => {
+    computeAll()
+  }, [params])
 
   async function getUser() {
     try {
       const resp = await axios.get(`${API_BASE}/me`, { withCredentials: true })
       setUser(resp.data)
     } catch (err) {
-      // User not logged in or no valid token
       setUser(null)
-    }
-  }
-
-  // Fetch success distribution whenever parameters change
-  useEffect(() => {
-    fetchSuccessDistribution()
-  }, [params])
-
-  async function fetchSuccessDistribution() {
-    try {
-      const resp = await axios.post(`${API_BASE}/compute_success_distribution`, params)
-      setSuccessDistribution(resp.data.success_distribution)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async function fetchInjuryOutcome() {
-    if (!successDistribution) return
-    const hit_distribution = successDistribution // {hits: probability}
-    const data = {
-      hit_distribution,
-      injury_params: injuryParams
-    }
-    try {
-      const resp = await axios.post(`${API_BASE}/compute_injury_outcome`, data)
-      setInjuryOutcome(resp.data)
-    } catch(e) {
-      console.error(e)
     }
   }
 
@@ -72,7 +48,25 @@ function App() {
     window.location.href = `${API_BASE}/auth/discord/login`
   }
 
-  // Prepare data for success distribution chart
+  async function computeAll() {
+    try {
+      // Compute success distribution first
+      const sdResp = await axios.post(`${API_BASE}/compute_success_distribution`, params)
+      setSuccessDistribution(sdResp.data.success_distribution)
+
+      // Once we have success distribution, compute injury outcome
+      const hit_distribution = sdResp.data.success_distribution
+      const ioReq = {
+        hit_distribution,
+        injury_params: injuryParams
+      }
+      const ioResp = await axios.post(`${API_BASE}/compute_injury_outcome`, ioReq)
+      setInjuryOutcome(ioResp.data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   let successChartData = null
   if (successDistribution) {
     const hits = Object.keys(successDistribution).map(k => Number(k))
@@ -89,7 +83,6 @@ function App() {
     }
   }
 
-  // Prepare data for injury outcome chart
   let injuryChartData = null
   if (injuryOutcome) {
     const markers = injuryOutcome.blood_marker_distribution.markers
@@ -108,6 +101,17 @@ function App() {
           backgroundColor: labels.map((l,i) => i === labels.length-1 ? 'rgba(255,99,132,0.5)' : 'rgba(75,192,192,0.5)')
         }
       ]
+    }
+  }
+
+  async function submitWarbandLore() {
+    try {
+      const loreObj = JSON.parse(loreJson)
+      const resp = await axios.post(`${API_BASE}/warband_lore`, loreObj)
+      alert(resp.data.message)
+    } catch (e) {
+      console.error(e)
+      alert("Invalid JSON or error in submission.")
     }
   }
 
@@ -130,89 +134,124 @@ function App() {
         </div>
       </header>
 
+      {/* Tabs */}
+      <div className="bg-white p-2 flex border-b border-gray-300">
+        <button
+          className={`px-4 py-2 ${currentTab === 'trenchmath' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
+          onClick={() => setCurrentTab('trenchmath')}
+        >
+          Trenchmath
+        </button>
+        <button
+          className={`px-4 py-2 ${currentTab === 'warband_lore' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
+          onClick={() => setCurrentTab('warband_lore')}
+        >
+          Warband Lore
+        </button>
+      </div>
+
       {/* Main Content */}
       <div className="flex-grow p-4 flex flex-col items-center">
-        <div className="bg-white p-4 rounded shadow max-w-md w-full mb-6">
-          <h2 className="text-xl font-semibold mb-2">Roll Parameters</h2>
-          <div className="space-y-2">
-            <label className="block">
-              Advantage / Disadvantage (0 = 2d6, -1 = 3d6 Disadvantage, 1 = 3d6 advantage, etc.):
-              <input
-                type="number"
-                value={params.modified_dice}
-                onChange={(e) => setParams({...params, modified_dice: parseInt(e.target.value)})}
-                className="block w-full border-gray-300 rounded mt-1"
-              />
-            </label>
-            <label className="block">
-              Flat Modifier to roll:
-              <input
-                type="number"
-                value={params.flat_modifier}
-                onChange={(e) => setParams({...params, flat_modifier: parseInt(e.target.value)})}
-                className="block w-full border-gray-300 rounded mt-1"
-              />
-            </label>
-            <label className="block">
-              Number of Rolls (if multi-shot for instance):
-              <input
-                type="number"
-                value={params.num_rolls}
-                onChange={(e) => setParams({...params, num_rolls: parseInt(e.target.value)})}
-                className="block w-full border-gray-300 rounded mt-1"
-              />
-            </label>
-          </div>
-        </div>
+        {currentTab === 'trenchmath' && (
+          <div className="w-full max-w-md space-y-6">
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-xl font-semibold mb-2">Roll Parameters</h2>
+              <div className="space-y-2">
+                <label className="block">
+                  Advantage/Disadvantage (0=2d6, 1=3d6 advantage, -1=3d6 disadvantage):
+                  <input
+                    type="number"
+                    value={params.modified_dice}
+                    onChange={(e) => setParams({...params, modified_dice: parseInt(e.target.value)})}
+                    className="block w-full border-gray-300 rounded mt-1"
+                  />
+                </label>
+                <label className="block">
+                  Flat Modifier to roll:
+                  <input
+                    type="number"
+                    value={params.flat_modifier}
+                    onChange={(e) => setParams({...params, flat_modifier: parseInt(e.target.value)})}
+                    className="block w-full border-gray-300 rounded mt-1"
+                  />
+                </label>
+                <label className="block">
+                  Number of Rolls (if multi-shot):
+                  <input
+                    type="number"
+                    value={params.num_rolls}
+                    onChange={(e) => setParams({...params, num_rolls: parseInt(e.target.value)})}
+                    className="block w-full border-gray-300 rounded mt-1"
+                  />
+                </label>
+              </div>
+            </div>
 
-        {successChartData && (
-          <div className="bg-white p-4 rounded shadow max-w-md w-full mb-6">
-            <h2 className="text-xl font-semibold mb-2">Success Distribution</h2>
-            <Bar data={successChartData} />
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-xl font-semibold mb-2">Injury Parameters</h2>
+              <div className="space-y-2">
+                <label className="block">
+                  Injury Adv/Disadv:
+                  <input
+                    type="number"
+                    value={injuryParams.modified_dice}
+                    onChange={(e) => setInjuryParams({...injuryParams, modified_dice: parseInt(e.target.value)})}
+                    className="block w-full border-gray-300 rounded mt-1"
+                  />
+                </label>
+                <label className="block flex items-center">
+                  <span>Injury Extra d6:</span>
+                  <input
+                    type="checkbox"
+                    checked={injuryParams.extra_d6}
+                    onChange={(e) => setInjuryParams({...injuryParams, extra_d6: e.target.checked})}
+                    className="ml-2"
+                  />
+                </label>
+                <label className="block">
+                  Injury Flat Modifier:
+                  <input
+                    type="number"
+                    value={injuryParams.flat_modifier}
+                    onChange={(e) => setInjuryParams({...injuryParams, flat_modifier: parseInt(e.target.value)})}
+                    className="block w-full border-gray-300 rounded mt-1"
+                  />
+                </label>
+              </div>
+              <button onClick={computeAll}
+                className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                Compute All (Hit & Injury)
+              </button>
+            </div>
+
+            {successChartData && (
+              <div className="bg-white p-4 rounded shadow">
+                <h2 className="text-xl font-semibold mb-2">Success Distribution</h2>
+                <Bar data={successChartData} />
+              </div>
+            )}
+
+            {injuryChartData && (
+              <div className="bg-white p-4 rounded shadow">
+                <h2 className="text-xl font-semibold mb-2">Injury Outcomes</h2>
+                <Bar data={injuryChartData} />
+              </div>
+            )}
           </div>
         )}
 
-        <div className="bg-white p-4 rounded shadow max-w-md w-full mb-6">
-          <h2 className="text-xl font-semibold mb-2">Injury Parameters</h2>
-          <div className="space-y-2">
-            <label className="block">
-              Injury Adv/Disadv:
-              <input
-                type="number"
-                value={injuryParams.modified_dice}
-                onChange={(e) => setInjuryParams({...injuryParams, modified_dice: parseInt(e.target.value)})}
-                className="block w-full border-gray-300 rounded mt-1"
-              />
-            </label>
-            <label className="block flex items-center">
-              <span>Injury Extra d6 (Bloodbath, Artillery Witch, etc):</span>
-              <input
-                type="checkbox"
-                checked={injuryParams.extra_d6}
-                onChange={(e) => setInjuryParams({...injuryParams, extra_d6: e.target.checked})}
-                className="ml-2"
-              />
-            </label>
-            <label className="block">
-              Injury Flat Modifier (i.e. Standard Armor = -1, Reinforced = -2, etc. ):
-              <input
-                type="number"
-                value={injuryParams.flat_modifier}
-                onChange={(e) => setInjuryParams({...injuryParams, flat_modifier: parseInt(e.target.value)})}
-                className="block w-full border-gray-300 rounded mt-1"
-              />
-            </label>
-          </div>
-          <button onClick={fetchInjuryOutcome}
-            className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-            Compute Injury Outcomes
-          </button>
-        </div>
-
-        {injuryChartData && (
-          <div className="bg-white p-4 rounded shadow max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-2">Injury Outcomes</h2>
-            <Bar data={injuryChartData} />
+        {currentTab === 'warband_lore' && (
+          <div className="w-full max-w-md space-y-4 bg-white p-4 rounded shadow">
+            <h2 className="text-xl font-semibold mb-2">Warband Lore</h2>
+            <p>Enter your Warband data as JSON:</p>
+            <textarea
+              value={loreJson}
+              onChange={(e) => setLoreJson(e.target.value)}
+              className="w-full h-48 border-gray-300 rounded"
+            ></textarea>
+            <button onClick={submitWarbandLore} className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">
+              Save Warband Lore
+            </button>
           </div>
         )}
       </div>
@@ -221,4 +260,3 @@ function App() {
 }
 
 export default App
-

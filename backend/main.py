@@ -8,12 +8,9 @@ from .models import InputText, User
 from pydantic import BaseModel
 from .oauth import router as oauth_router
 from .auth import get_current_user
-from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
-
 # Import your Trench Crusade math functions here:
-# (We copy them from the given code)
 from .trench_crusade_math import (
     compute,
     compute_success_distribution,
@@ -24,8 +21,6 @@ from .trench_crusade_math import (
 
 load_dotenv()
 
-# Run DB migrations if needed using Alembic
-# Assuming alembic set up, you'd run: alembic upgrade head before starting
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -53,7 +48,7 @@ class TextInput(BaseModel):
 
 @app.post("/submit")
 def submit_text(data: TextInput, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # This endpoint now requires authentication
+    # Requires login for now
     new_entry = InputText(text=data.text, owner_id=current_user.id)
     db.add(new_entry)
     db.commit()
@@ -62,7 +57,6 @@ def submit_text(data: TextInput, db: Session = Depends(get_db), current_user: Us
 
 @app.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
-    # Return basic user info
     return {"id": current_user.id, "username": current_user.username, "avatar_url": current_user.avatar_url}
 
 
@@ -79,11 +73,8 @@ class SuccessDistributionRequest(BaseModel):
     num_rolls: int = 1
 
 class InjuryOutcomeRequest(BaseModel):
-    hit_distribution: dict[int, float]  # {hits: probability}
-    injury_params: dict[str, int]       # {modified_dice, extra_d6(bool?), flat_modifier}
-    # We'll treat extra_d6 in injury_params as a bool as well.
-    # Make sure to cast where needed.
-    # example: {"modified_dice": -1, "extra_d6": true, "flat_modifier": -3}
+    hit_distribution: dict[int, float]
+    injury_params: dict[str, int | bool]
 
 @app.post("/compute_distribution")
 def get_compute_distribution(req: ComputeRequest):
@@ -103,13 +94,12 @@ def get_success_distribution(req: SuccessDistributionRequest):
 
 @app.post("/compute_injury_outcome")
 def get_injury_outcome(req: InjuryOutcomeRequest):
-    # Convert extra_d6 back to bool if needed
     injury_params = req.injury_params
+    # Ensure extra_d6 is bool
     if isinstance(injury_params.get("extra_d6"), str):
         injury_params["extra_d6"] = (injury_params["extra_d6"].lower() == "true")
 
     result = compute_injury_outcome_refined(req.hit_distribution, injury_params, injury_thresholds)
-    # Return both distributions as lists for easy chart usage
     blood_markers = []
     blood_probs = []
     for bm, p in result["blood_marker_distribution"].items():
@@ -125,10 +115,13 @@ def get_injury_outcome(req: InjuryOutcomeRequest):
         "out_of_action_probability": out_of_action_prob
     }
 
+@app.post("/warband_lore")
+def save_warband_lore(lore: dict):
+    print("Received Warband Lore:", lore)
+    return {"message": "saved warband"}
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
-# Serve frontend
-# After building the frontend (npm run build), the `dist` folder will be created in frontend/
 app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
