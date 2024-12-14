@@ -4,7 +4,7 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
-const API_BASE = "http://64.227.96.236:8000" // Adjust as needed
+const API_BASE = "http://0.0.0.0:8000" // Adjust as needed
 
 function App() {
   const [params, setParams] = useState({
@@ -136,7 +136,7 @@ function App() {
           <h2 className="text-xl font-semibold mb-2">Roll Parameters</h2>
           <div className="space-y-2">
             <label className="block">
-              Modified Dice:
+              Advantage / Disadvantage (0 = 2d6, -1 = 3d6 Disadvantage, 1 = 3d6 advantage, etc.):
               <input
                 type="number"
                 value={params.modified_dice}
@@ -144,17 +144,8 @@ function App() {
                 className="block w-full border-gray-300 rounded mt-1"
               />
             </label>
-            <label className="block flex items-center">
-              <span>Extra d6:</span>
-              <input
-                type="checkbox"
-                checked={params.extra_d6}
-                onChange={(e) => setParams({...params, extra_d6: e.target.checked})}
-                className="ml-2"
-              />
-            </label>
             <label className="block">
-              Flat Modifier:
+              Flat Modifier to roll:
               <input
                 type="number"
                 value={params.flat_modifier}
@@ -163,16 +154,7 @@ function App() {
               />
             </label>
             <label className="block">
-              Threshold:
-              <input
-                type="number"
-                value={params.threshold}
-                onChange={(e) => setParams({...params, threshold: parseInt(e.target.value)})}
-                className="block w-full border-gray-300 rounded mt-1"
-              />
-            </label>
-            <label className="block">
-              Number of Rolls:
+              Number of Rolls (if multi-shot for instance):
               <input
                 type="number"
                 value={params.num_rolls}
@@ -194,7 +176,7 @@ function App() {
           <h2 className="text-xl font-semibold mb-2">Injury Parameters</h2>
           <div className="space-y-2">
             <label className="block">
-              Injury Modified Dice:
+              Injury Adv/Disadv:
               <input
                 type="number"
                 value={injuryParams.modified_dice}
@@ -203,7 +185,7 @@ function App() {
               />
             </label>
             <label className="block flex items-center">
-              <span>Injury Extra d6:</span>
+              <span>Injury Extra d6 (Bloodbath, Artillery Witch, etc):</span>
               <input
                 type="checkbox"
                 checked={injuryParams.extra_d6}
@@ -212,7 +194,7 @@ function App() {
               />
             </label>
             <label className="block">
-              Injury Flat Modifier:
+              Injury Flat Modifier (i.e. Standard Armor = -1, Reinforced = -2, etc. ):
               <input
                 type="number"
                 value={injuryParams.flat_modifier}
